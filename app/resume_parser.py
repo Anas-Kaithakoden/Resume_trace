@@ -1,3 +1,5 @@
+# resume_parser.py
+
 import pymupdf
 from docx import Document
 

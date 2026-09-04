@@ -19,9 +19,17 @@ JSON response
 backend/
 ├── app/
 │   ├── main.py
-│   ├── parser.py
-│   └── analyzer.py
+│   ├── resume_parser.py
+│   └── resume_analyzer.py
 │
 ├── resumes/
-│   └── resume.pdf
+│   ├── resume.pdf
+│   └── job_description.txt
 └──
+
+problem: tried ollama mode tinyllama, but gave weak response
+solution 1: changed model to qwen3:8b
+issue: pc can't handle
+solution 2: switch model to qwen3:4b
+issue : pc still can't handle
+solution 3: use openrouter API ✅
