@@ -1,2 +1,6 @@
 PyMuPDF # parse pdf
 python-docx # parse docx
+
+python-dotenv
+google-genai
+pydantic
