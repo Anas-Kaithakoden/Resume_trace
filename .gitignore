@@ -1,5 +1,7 @@
+# backend
 .venv/
 __pycache__/
+.pytest_cache
 .env
 resumes/
 test_analysis.json
