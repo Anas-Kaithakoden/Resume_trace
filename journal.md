@@ -20,7 +20,8 @@ backend/
 ├── app/
 │   ├── main.py
 │   ├── resume_parser.py
-│   └── resume_analyzer.py
+│   ├── resume_analyzer.py
+│   └── llm_schemas.py
 │
 ├── resumes/
 │   ├── resume.pdf
@@ -33,6 +34,27 @@ solution 1: changed model to qwen3:8b
 issue: pc can't handle
 solution 2: switch model to qwen3:4b
 issue : pc still can't handle
-solution 3: use openrouter API ✅
+solution 3: use openrouter API 
 issue : very slow ~ 3-5 minutes and hallucinations/inaccuracies
-solution: switch to gemini free models
+solution: switch to gemini free models ✅
+
+The next step is turning that working script into a proper backend service.
+
+                ┌─────────────────────┐
+                │      FastAPI        │
+                │                     │
+                │  POST /analyze      │
+                └──────────┬──────────┘
+                           │
+                    ┌──────┴──────┐
+                    ↓             ↓
+              resume.pdf      JD text
+                    ↓              │
+              PDF parser           │
+                    └──────┬───────┘
+                           ↓
+                     LLM / Ollama
+                           ↓
+                    structured result
+                           ↓
+                    FastAPI response

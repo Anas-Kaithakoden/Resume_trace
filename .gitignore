@@ -1,4 +1,5 @@
-resumes/
 .venv/
 __pycache__/
 .env
+resumes/
+test_analysis.json

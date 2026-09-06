@@ -1,6 +1,11 @@
 PyMuPDF # parse pdf
 python-docx # parse docx
 
+# LLM
 python-dotenv
 google-genai
 pydantic
+
+# Backend
+fastapi
+uvicorn

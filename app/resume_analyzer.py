@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
-from llm_schemas import ResumeAnalysis
+from app.llm_schemas import ResumeAnalysis
 
 load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -322,7 +322,12 @@ CANDIDATE RESUME
 
     return prompt
 
+import json
 def analyze_with_gemini(resume_text, job_description):
+    with open("test_analysis.json", "r", encoding="utf-8") as file:
+        data = json.load(file)
+        return data
+
     prompt = build_prompt(resume_text, job_description)
 
     response = client.models.generate_content(
@@ -333,5 +338,8 @@ def analyze_with_gemini(resume_text, job_description):
             "response_schema": ResumeAnalysis,
         },
     )
+    
+    with open("test_analysis.json", "w", encoding="utf-8") as file:
+        file.write(response.text)
 
     return ResumeAnalysis.model_validate_json(response.text)
