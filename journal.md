@@ -58,3 +58,23 @@ The next step is turning that working script into a proper backend service.
                     structured result
                            ↓
                     FastAPI response
+
+adding request/response models:
+
+Client
+   │
+   │ request
+   ▼
+FastAPI
+   │
+   │ validated input
+   ▼
+LLM
+   │
+   │ model output
+   ▼
+Pydantic validation
+   │
+   │ validated response
+   ▼
+Client

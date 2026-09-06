@@ -326,7 +326,7 @@ import json
 def analyze_with_gemini(resume_text, job_description):
     with open("test_analysis.json", "r", encoding="utf-8") as file:
         data = json.load(file)
-        return data
+        return ResumeAnalysis.model_validate(data)
 
     prompt = build_prompt(resume_text, job_description)
 

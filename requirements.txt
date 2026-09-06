@@ -9,3 +9,4 @@ pydantic
 # Backend
 fastapi
 uvicorn
+python-multipart # receive files
