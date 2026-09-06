@@ -21,7 +21,8 @@ backend/
 │   ├── main.py
 │   ├── resume_parser.py
 │   ├── resume_analyzer.py
-│   └── llm_schemas.py
+│   ├── llm_schemas.py
+│   └── spi_schemas.py
 │
 ├── resumes/
 │   ├── resume.pdf
@@ -59,7 +60,7 @@ The next step is turning that working script into a proper backend service.
                            ↓
                     FastAPI response
 
-adding request/response models:
+Adding request/response models:
 
 Client
    │
@@ -78,3 +79,16 @@ Pydantic validation
    │ validated response
    ▼
 Client
+
+Adding basic tests:
+    POST /analyze accepts the resume + JD.
+    The endpoint returns 200.
+    The response matches ResumeAnalysis.
+    Missing resume is rejected.
+    Missing JD file/text is rejected.
+
+tests/
+├── conftest.py
+├── test_analyze.py       ← successful /analyze requests
+├── test_parser.py        ← PDF/DOCX parsing
+└── test_validation.py    ← invalid API requests
