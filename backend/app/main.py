@@ -4,10 +4,19 @@ from app.resume_parser import parse_resume, parse_job_description
 from app.resume_analyzer import analyze_with_gemini
 from app.llm_schemas import ResumeAnalysis
 
+from fastapi.middleware.cors import CORSMiddleware
+
 import os
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5500","http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/analyze", response_model=ResumeAnalysis)
 async def analyze_resume(

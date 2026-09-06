@@ -87,8 +87,53 @@ Adding basic tests:
     Missing resume is rejected.
     Missing JD file/text is rejected.
 
-tests/
-├── conftest.py
-├── test_analyze.py       ← successful /analyze requests
-├── test_parser.py        ← PDF/DOCX parsing
-└── test_validation.py    ← invalid API requests
+backend/
+├── app/
+│   ├── main.py              ← API entry point / endpoints
+│   ├── resume_parser.py     ← extracts text from files
+│   ├── resume_analyzer.py   ← communicates with Gemini
+│   ├── llm_schemas.py       ← validates LLM output
+│   └── api_schemas.py       ← API request models
+│
+└── tests/
+    ├── conftest.py          ← shared test fixtures
+    ├── test_analyze.py      ← successful /analyze requests
+    ├── test_parser.py       ← PDF/DOCX parsing
+    └── test_validation.py   ← invalid API requests
+
+### frontend
+┌─────────────────────┐
+│ React + Vite        │
+│                     │
+│ Upload Resume       │
+│ Enter JD            │
+│ View Analysis       │
+└──────────┬──────────┘
+           │
+           │ HTTP POST /analyze
+           ↓
+┌─────────────────────┐
+│ FastAPI             │
+│                     │
+│ Parse resume        │
+│ Analyze with Gemini │
+│ Validate response   │
+└─────────────────────┘
+
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── ResumeUpload.jsx       ← resume file upload UI
+│   │   ├── JobDescription.jsx     ← job description input UI
+│   │   ├── AnalyzeButton.jsx      ← analyze button + loading state
+│   │   └── AnalysisResult.jsx     ← displays the analysis results
+│   │
+│   ├── App.jsx                    ← main app; manages state and connects components
+│   ├── App.css                    ← styles for the application UI
+│   ├── index.css                  ← global/base styles
+│   └── main.jsx                   ← frontend entry point; starts the React app
+│
+├── public/                        ← static files
+├── package.json                   ← frontend dependencies and scripts
+├── vite.config.js                 ← Vite configuration
+└── index.html                     ← HTML page React is mounted into
