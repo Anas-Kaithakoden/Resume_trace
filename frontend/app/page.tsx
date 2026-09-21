@@ -38,6 +38,7 @@ type AnalysisData = {
 export default function Page() {
   const [resume, setResume] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
+  const [selectedModel, setSelectedModel] = useState<'gemini' | 'openrouter' | 'groq'>('gemini');
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,6 +59,7 @@ export default function Page() {
       const formData = new FormData();
       formData.append('resume', resume);
       formData.append('job_description_text', jobDescription);
+      formData.append('model', selectedModel);
 
       const response = await fetch('http://127.0.0.1:8000/analyze', {
         method: 'POST',
@@ -91,6 +93,8 @@ export default function Page() {
           setResume={setResume}
           jobDescription={jobDescription}
           setJobDescription={setJobDescription}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
           onAnalyze={handleAnalyze}
           loading={loading}
         />

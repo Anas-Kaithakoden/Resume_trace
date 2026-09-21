@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 
 from app.resume_parser import parse_resume
-from app.resume_analyzer import analyze_with_gemini
+from app.resume_analyzer import analyze_with_model
 from app.llm_schemas import ResumeAnalysis
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +34,7 @@ async def analyze_resume(
     resume: UploadFile = File(...),
     job_description_text: str | None = Form(default=None),
     job_description: UploadFile | None = File(default=None),
+    model: str = Form(default="gemini"),
 ):
     if job_description is not None:
         job_description_text = (await job_description.read()).decode(
@@ -53,9 +54,10 @@ async def analyze_resume(
 
     resume_text = parse_resume(resume_path)
 
-    result = analyze_with_gemini(
+    result = analyze_with_model(
         resume_text,
-        job_description_text
+        job_description_text,
+        model_name=model,
     )
 
     return result

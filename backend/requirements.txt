@@ -4,6 +4,7 @@ python-docx # parse docx
 # LLM
 python-dotenv
 google-genai
+openai
 pydantic
 
 # Backend

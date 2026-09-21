@@ -1,12 +1,135 @@
 # resume_analyzer.py
+import json
 import os
+from typing import Any
+
 from dotenv import load_dotenv
 from google import genai
+
+try:
+    from openai import OpenAI
+except ImportError:  # pragma: no cover - optional dependency until installed
+    OpenAI = None
 
 from app.llm_schemas import ResumeAnalysis
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+DEFAULT_MODELS = {
+    "gemini": os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+    "openrouter": os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-20b:free"),
+    "groq": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+}
+
+
+def resolve_model_name(model_name: str | None) -> str:
+    normalized = (model_name or "gemini").strip().lower()
+    aliases = {
+        "gemini": "gemini",
+        "gemini-flash": "gemini",
+        "google-gemini": "gemini",
+        "openrouter": "openrouter",
+        "or": "openrouter",
+        "groq": "groq",
+        "llama": "groq",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _parse_json_response(raw_response: str | None) -> dict[str, Any]:
+    if not raw_response:
+        raise ValueError("LLM returned an empty response.")
+
+    cleaned = raw_response.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:].lstrip()
+
+    return json.loads(cleaned)
+
+
+def _validate_analysis_payload(payload: dict[str, Any]) -> ResumeAnalysis:
+    parsed = ResumeAnalysis.model_validate(payload)
+    return parsed
+
+
+def analyze_with_gemini(resume_text: str, job_description: str):
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    model_name = DEFAULT_MODELS["gemini"]
+    response = client.models.generate_content(
+        model=model_name,
+        contents=f"{build_prompt(resume_text, job_description)}",
+    )
+    return _validate_analysis_payload(_parse_json_response(response.text))
+
+
+def analyze_with_openrouter(resume_text: str, job_description: str):
+    if OpenAI is None:
+        raise ModuleNotFoundError(
+            "openai package is required for OpenRouter and Groq support."
+        )
+
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise ValueError("OPENROUTER_API_KEY is not set.")
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+    )
+    model_name = DEFAULT_MODELS["openrouter"]
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "user", "content": build_prompt(resume_text, job_description)}
+        ],
+        temperature=0.2,
+        response_format={"type": "json_object"},
+    )
+    content = response.choices[0].message.content
+    return _validate_analysis_payload(_parse_json_response(content))
+
+
+def analyze_with_groq(resume_text: str, job_description: str):
+    if OpenAI is None:
+        raise ModuleNotFoundError(
+            "openai package is required for OpenRouter and Groq support."
+        )
+
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY is not set.")
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.groq.com/openai/v1",
+    )
+    model_name = DEFAULT_MODELS["groq"]
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "user", "content": build_prompt(resume_text, job_description)}
+        ],
+        temperature=0.2,
+        response_format={"type": "json_object"},
+    )
+    content = response.choices[0].message.content
+    return _validate_analysis_payload(_parse_json_response(content))
+
+
+def analyze_with_model(resume_text: str, job_description: str, model_name: str = "gemini"):
+    provider = resolve_model_name(model_name)
+
+    if provider == "gemini":
+        return analyze_with_gemini(resume_text, job_description)
+    if provider == "openrouter":
+        return analyze_with_openrouter(resume_text, job_description)
+    if provider == "groq":
+        return analyze_with_groq(resume_text, job_description)
+
+    raise ValueError(f"Unsupported model provider: {model_name}")
+
 
 def build_prompt(resume_text, job_description):
     prompt = f"""
@@ -321,25 +444,3 @@ CANDIDATE RESUME
 """
 
     return prompt
-
-import json
-def analyze_with_gemini(resume_text, job_description):
-    with open("test_analysis.json", "r", encoding="utf-8") as file:
-        data = json.load(file)
-        return ResumeAnalysis.model_validate(data)
-
-    prompt = build_prompt(resume_text, job_description)
-
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": ResumeAnalysis,
-        },
-    )
-    
-    with open("test_analysis.json", "w", encoding="utf-8") as file:
-        file.write(response.text)
-
-    return ResumeAnalysis.model_validate_json(response.text)

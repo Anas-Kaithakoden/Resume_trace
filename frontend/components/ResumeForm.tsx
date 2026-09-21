@@ -7,6 +7,8 @@ type ResumeFormProps = {
   setResume: Dispatch<SetStateAction<File | null>>;
   jobDescription: string;
   setJobDescription: Dispatch<SetStateAction<string>>;
+  selectedModel: 'gemini' | 'openrouter' | 'groq';
+  setSelectedModel: Dispatch<SetStateAction<'gemini' | 'openrouter' | 'groq'>>;
   onAnalyze: () => void;
   loading: boolean;
 };
@@ -16,6 +18,8 @@ export default function ResumeForm({
   setResume,
   jobDescription,
   setJobDescription,
+  selectedModel,
+  setSelectedModel,
   onAnalyze,
   loading,
 }: ResumeFormProps) {
@@ -31,6 +35,23 @@ export default function ResumeForm({
           />
           <span>{resume ? resume.name : 'Drop PDF / DOCX or choose file'}</span>
         </label>
+      </div>
+
+      <div className="form-section">
+        <label className="section-label">Model</label>
+        <select
+          className="job-description"
+          value={selectedModel}
+          onChange={(event) =>
+            setSelectedModel(
+              event.target.value as 'gemini' | 'openrouter' | 'groq',
+            )
+          }
+        >
+          <option value="gemini">Gemini 2.5 Flash</option>
+          <option value="openrouter">OpenRouter (DeepSeek / free)</option>
+          <option value="groq">Groq (Llama 3.3)</option>
+        </select>
       </div>
 
       <div className="form-section">

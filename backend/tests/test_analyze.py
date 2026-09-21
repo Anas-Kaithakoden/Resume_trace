@@ -33,8 +33,8 @@ def test_analyze_with_jd_text(monkeypatch, sample_resume):
 
     monkeypatch.setattr(
         main,
-        "analyze_with_gemini",
-        lambda resume, jd: mock_analysis(),
+        "analyze_with_model",
+        lambda resume, jd, model_name="gemini": mock_analysis(),
     )
 
     with open(sample_resume, "rb") as resume_file:
@@ -74,8 +74,8 @@ def test_analyze_with_jd_file(monkeypatch, sample_resume, tmp_path):
 
     monkeypatch.setattr(
         main,
-        "analyze_with_gemini",
-        lambda resume, jd: mock_analysis(),
+        "analyze_with_model",
+        lambda resume, jd, model_name="gemini": mock_analysis(),
     )
 
     jd_path = tmp_path / "test_job_description.txt"
