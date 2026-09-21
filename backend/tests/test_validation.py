@@ -7,6 +7,15 @@ from app.main import app
 client = TestClient(app)
 
 
+def test_root_route():
+    """The API should respond at the root URL instead of returning 404."""
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+
 def test_missing_resume():
     """A request without the required resume should be rejected."""
 
