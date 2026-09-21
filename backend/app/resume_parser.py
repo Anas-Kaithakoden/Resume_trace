@@ -43,10 +43,3 @@ def parse_resume(file_path):
 
     else:
         raise ValueError(f"Unsupported file type: {extension}")
-
-
-def parse_job_description(file_path):
-    """Extract text from a job description text file."""
-    
-    with open(file_path, "r", encoding="utf-8") as file:
-        return file.read()
