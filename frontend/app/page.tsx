@@ -1,39 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-
+import { useState, useEffect } from 'react';
 import ResumeForm from '../components/ResumeForm';
-
-type MatchingSkill = {
-  skill: string;
-  evidence?: string;
-};
-
-type MissingSkill = {
-  skill: string;
-  importance?: string;
-};
-
-type WeakArea = {
-  area: string;
-  reason?: string;
-};
-
-type BulletImprovement = {
-  original: string;
-  suggested: string;
-  reason: string;
-};
-
-type AnalysisData = {
-  overall_match: number;
-  matching_skills: MatchingSkill[];
-  missing_skills: MissingSkill[];
-  weak_areas: WeakArea[];
-  ats_issues: string[];
-  bullet_improvements: BulletImprovement[];
-  recommendations: string[];
-};
+import AnalysisResults, { AnalysisData } from '../components/AnalysisResults';
+import ResumeDocumentViewer from '../components/ResumeDocumentViewer';
 
 export default function Page() {
   const [resume, setResume] = useState<File | null>(null);
@@ -41,15 +11,41 @@ export default function Page() {
   const [selectedModel, setSelectedModel] = useState<'gemini' | 'openrouter' | 'groq'>('gemini');
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [showEditDrawer, setShowEditDrawer] = useState(false);
+
+  // Manage PDF object URL lifecycle
+  useEffect(() => {
+    if (!resume) {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(null);
+      }
+      return;
+    }
+
+    if (resume.name.toLowerCase().endsWith('.pdf') || resume.type === 'application/pdf') {
+      const url = URL.createObjectURL(resume);
+      setPdfUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(null);
+      }
+    }
+  }, [resume]);
 
   async function handleAnalyze() {
     if (!resume) {
-      alert('Please upload a resume.');
+      alert('Please upload a resume file (PDF or DOCX).');
       return;
     }
 
     if (!jobDescription.trim()) {
-      alert('Please enter a job description.');
+      alert('Please provide a job description.');
       return;
     }
 
@@ -67,145 +63,161 @@ export default function Page() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyze resume');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || 'Failed to analyze resume');
       }
 
       const data: AnalysisData = await response.json();
       setAnalysis(data);
-    } catch (error) {
+      setShowEditDrawer(false);
+    } catch (error: any) {
       console.error(error);
-      alert('Something went wrong while analyzing the resume.');
+      alert(error?.message || 'Something went wrong while analyzing the resume.');
     } finally {
       setLoading(false);
     }
   }
 
+  const handleReset = () => {
+    setAnalysis(null);
+    setShowEditDrawer(false);
+  };
+
   return (
-    <main className="app">
-      <div className="container">
-        <header className="header">
-          <h1>Resume Engineering Assistant</h1>
-          <p>Analyze your resume against a job description.</p>
-        </header>
+    <main className="app-shell">
+      {/* Top Navigation Bar */}
+      <header className="app-navbar">
+        <div className="navbar-container">
+          <div className="navbar-brand">
+            <span className="brand-title">Resume_trace</span>
+            <span className="brand-tag">Engineering Assistant</span>
+          </div>
 
-        <ResumeForm
-          resume={resume}
-          setResume={setResume}
-          jobDescription={jobDescription}
-          setJobDescription={setJobDescription}
-          selectedModel={selectedModel}
-          setSelectedModel={setSelectedModel}
-          onAnalyze={handleAnalyze}
-          loading={loading}
-        />
-
-        {analysis && (
-          <div className="results">
-            <div className="match-card">
-              <span>Overall Match</span>
-              <strong>{analysis.overall_match}%</strong>
+          {analysis && (
+            <div className="navbar-center-info">
+              <span className="navbar-file-label">
+                <span className="doc-icon">📄</span>
+                {resume?.name}
+              </span>
+              <span className="navbar-score-badge">
+                Match: <strong>{analysis.overall_match}%</strong>
+              </span>
             </div>
+          )}
 
-            <section className="result-section">
-              <h2>Matching Skills</h2>
-              {analysis.matching_skills.length > 0 ? (
-                <ul>
-                  {analysis.matching_skills.map((item, index) => (
-                    <li key={index}>
-                      <strong>{item.skill}</strong>
-                      {item.evidence && <span className="evidence"> — {item.evidence}</span>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty">No matching skills found.</p>
-              )}
+          <div className="navbar-actions">
+            {analysis ? (
+              <>
+                <button
+                  type="button"
+                  className="nav-btn secondary"
+                  onClick={() => setShowEditDrawer(!showEditDrawer)}
+                >
+                  {showEditDrawer ? 'Close Editor' : 'Edit Input / Model'}
+                </button>
+                <button
+                  type="button"
+                  className="nav-btn primary"
+                  onClick={handleReset}
+                >
+                  + New Analysis
+                </button>
+              </>
+            ) : (
+              <span className="navbar-hint">Upload resume & JD to start</span>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      {!analysis ? (
+        /* Initial Upload Form View */
+        <div className="landing-container">
+          <div className="landing-hero">
+            <h1>Resume Engineering Assistant</h1>
+            <p>
+              Analyze your resume evidence directly against job requirements.
+              Receive grounded match scores, missing qualification alerts, ATS feedback, and tailored bullet-point recommendations.
+            </p>
+          </div>
+
+          <div className="landing-form-wrapper">
+            <ResumeForm
+              resume={resume}
+              setResume={setResume}
+              jobDescription={jobDescription}
+              setJobDescription={setJobDescription}
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              onAnalyze={handleAnalyze}
+              loading={loading}
+            />
+          </div>
+        </div>
+      ) : (
+        /* Two-Column Side-by-Side Split Workspace */
+        <div className="workspace-container">
+          {/* Optional slide-down or overlay drawer to edit inputs */}
+          {showEditDrawer && (
+            <div className="drawer-overlay" onClick={() => setShowEditDrawer(false)}>
+              <div className="drawer-content" onClick={(e) => e.stopPropagation()}>
+                <div className="drawer-header">
+                  <h3>Modify Inputs & Re-run Analysis</h3>
+                  <button
+                    type="button"
+                    className="drawer-close-btn"
+                    onClick={() => setShowEditDrawer(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <ResumeForm
+                  resume={resume}
+                  setResume={setResume}
+                  jobDescription={jobDescription}
+                  setJobDescription={setJobDescription}
+                  selectedModel={selectedModel}
+                  setSelectedModel={setSelectedModel}
+                  onAnalyze={handleAnalyze}
+                  loading={loading}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="split-workspace">
+            {/* Left Panel: Analyzed Data */}
+            <section className="workspace-panel left-panel">
+              <div className="panel-inner">
+                <div className="panel-title-bar">
+                  <h2>Analysis & Tailoring Suggestions</h2>
+                  <span className="panel-status">Grounded Insights</span>
+                </div>
+                <AnalysisResults
+                  analysis={analysis}
+                  onNewAnalysis={() => setShowEditDrawer(true)}
+                />
+              </div>
             </section>
 
-            <section className="result-section">
-              <h2>Missing Skills</h2>
-              {analysis.missing_skills.length > 0 ? (
-                <ul>
-                  {analysis.missing_skills.map((item, index) => (
-                    <li key={index}>
-                      <strong>{item.skill}</strong>
-                      <span className="importance"> ({item.importance})</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty">No missing skills found.</p>
-              )}
-            </section>
-
-            <section className="result-section">
-              <h2>Weak Areas</h2>
-              {analysis.weak_areas.length > 0 ? (
-                <ul>
-                  {analysis.weak_areas.map((item, index) => (
-                    <li key={index}>
-                      <strong>{item.area}</strong>
-                      {item.reason && <span className="evidence"> — {item.reason}</span>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty">No weak areas found.</p>
-              )}
-            </section>
-
-            <section className="result-section">
-              <h2>ATS Issues</h2>
-              {analysis.ats_issues.length > 0 ? (
-                <ul>
-                  {analysis.ats_issues.map((issue, index) => (
-                    <li key={index}>{issue}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty">No ATS issues found.</p>
-              )}
-            </section>
-
-            <section className="result-section">
-              <h2>Bullet Improvements</h2>
-              {analysis.bullet_improvements.length > 0 ? (
-                analysis.bullet_improvements.map((item, index) => (
-                  <div className="bullet-improvement" key={index}>
-                    <div>
-                      <span className="sub-label">Original</span>
-                      <p>{item.original}</p>
-                    </div>
-                    <div>
-                      <span className="sub-label">Suggested</span>
-                      <p>{item.suggested}</p>
-                    </div>
-                    <div>
-                      <span className="sub-label">Reason</span>
-                      <p>{item.reason}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="empty">No bullet improvements.</p>
-              )}
-            </section>
-
-            <section className="result-section">
-              <h2>Recommendations</h2>
-              {analysis.recommendations.length > 0 ? (
-                <ul>
-                  {analysis.recommendations.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty">No recommendations.</p>
-              )}
+            {/* Right Panel: Uploaded Resume in Document Form */}
+            <section className="workspace-panel right-panel">
+              <div className="panel-inner">
+                <div className="panel-title-bar">
+                  <h2>Candidate Resume Document</h2>
+                  <span className="panel-status">File Preview</span>
+                </div>
+                <ResumeDocumentViewer
+                  resumeFile={resume}
+                  resumeText={analysis.resume_text || null}
+                  pdfUrl={pdfUrl}
+                />
+              </div>
             </section>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -5,6 +5,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from google import genai
+from pydantic import ValidationError
 
 try:
     from openai import OpenAI
@@ -17,7 +18,7 @@ load_dotenv()
 
 DEFAULT_MODELS = {
     "gemini": os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-    "openrouter": os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-20b:free"),
+    "openrouter": os.getenv("OPENROUTER_MODEL", "openrouter/free"),
     "groq": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
 }
 
@@ -49,9 +50,173 @@ def _parse_json_response(raw_response: str | None) -> dict[str, Any]:
     return json.loads(cleaned)
 
 
+def _normalize_matching_skill(item: Any) -> dict[str, str]:
+    if isinstance(item, dict):
+        skill = item.get("skill") or item.get("name") or "Matching skill"
+        evidence = (
+            item.get("evidence")
+            or item.get("details")
+            or item.get("reason")
+            or "Demonstrated in resume."
+        )
+        return {"skill": str(skill), "evidence": str(evidence)}
+
+    return {"skill": str(item), "evidence": "Demonstrated in resume."}
+
+
+def _normalize_missing_skill(item: Any) -> dict[str, str]:
+    if isinstance(item, dict):
+        skill = item.get("skill") or item.get("name") or "Unknown skill"
+        importance = (
+            item.get("importance")
+            or item.get("severity")
+            or item.get("priority")
+            or "medium"
+        )
+        importance_str = str(importance).strip().lower()
+        if importance_str not in {"high", "medium", "low"}:
+            importance_str = "medium"
+        return {"skill": str(skill), "importance": importance_str}
+
+    return {"skill": str(item), "importance": "medium"}
+
+
+def _normalize_weak_area(item: Any) -> dict[str, str]:
+    if isinstance(item, dict):
+        area = item.get("area") or item.get("title") or item.get("skill") or "Weak evidence area"
+        reason = item.get("reason") or item.get("details") or item.get("description") or "Insufficient evidence in the resume."
+        return {"area": str(area), "reason": str(reason)}
+
+    return {
+        "area": "Weak evidence area",
+        "reason": str(item),
+    }
+
+
+def _normalize_bullet_improvement(item: Any) -> dict[str, str]:
+    if isinstance(item, dict):
+        original = item.get("original") or item.get("bullet") or item.get("current") or ""
+        suggested = item.get("suggested") or item.get("improved") or item.get("rewrite") or original
+        reason = (
+            item.get("reason")
+            or item.get("explanation")
+            or item.get("details")
+            or "Improves alignment with the job requirements."
+        )
+        return {"original": str(original), "suggested": str(suggested), "reason": str(reason)}
+
+    return {
+        "original": str(item),
+        "suggested": str(item),
+        "reason": "Improves alignment with the job requirements.",
+    }
+
+
+def _normalize_ats_issue(item: Any) -> str:
+    if isinstance(item, dict):
+        return str(
+            item.get("issue")
+            or item.get("description")
+            or item.get("text")
+            or next(iter(item.values()), "ATS issue identified.")
+        )
+
+    return str(item)
+
+
+def _normalize_recommendation(item: Any) -> str:
+    if isinstance(item, dict):
+        return str(
+            item.get("recommendation")
+            or item.get("rec")
+            or item.get("text")
+            or item.get("description")
+            or item.get("action")
+            or next(iter(item.values()), "Follow recommended resume best practices.")
+        )
+
+    return str(item)
+
+
+def _normalize_analysis_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise TypeError("Analysis payload must be a dictionary.")
+
+    normalized = dict(payload)
+
+    if "overall_match" in normalized:
+        try:
+            match_int = int(normalized["overall_match"])
+            normalized["overall_match"] = max(0, min(100, match_int))
+        except (TypeError, ValueError):
+            normalized["overall_match"] = 0
+    else:
+        normalized["overall_match"] = 0
+
+    if "matching_skills" in normalized:
+        matching = normalized["matching_skills"]
+        if isinstance(matching, list):
+            normalized["matching_skills"] = [
+                _normalize_matching_skill(item) for item in matching
+            ]
+        else:
+            normalized["matching_skills"] = []
+
+    if "missing_skills" in normalized:
+        missing = normalized["missing_skills"]
+        if isinstance(missing, list):
+            normalized["missing_skills"] = [
+                _normalize_missing_skill(item) for item in missing
+            ]
+        else:
+            normalized["missing_skills"] = []
+
+    if "weak_areas" in normalized:
+        weak_areas = normalized["weak_areas"]
+        if isinstance(weak_areas, list):
+            normalized["weak_areas"] = [
+                _normalize_weak_area(item) for item in weak_areas
+            ]
+        else:
+            normalized["weak_areas"] = []
+
+    if "ats_issues" in normalized:
+        ats_issues = normalized["ats_issues"]
+        if isinstance(ats_issues, list):
+            normalized["ats_issues"] = [
+                _normalize_ats_issue(item) for item in ats_issues
+            ]
+        else:
+            normalized["ats_issues"] = []
+
+    if "bullet_improvements" in normalized:
+        improvements = normalized["bullet_improvements"]
+        if isinstance(improvements, list):
+            normalized["bullet_improvements"] = [
+                _normalize_bullet_improvement(item) for item in improvements
+            ]
+        else:
+            normalized["bullet_improvements"] = []
+
+    if "recommendations" in normalized:
+        recommendations = normalized["recommendations"]
+        if isinstance(recommendations, list):
+            normalized["recommendations"] = [
+                _normalize_recommendation(item) for item in recommendations
+            ]
+        else:
+            normalized["recommendations"] = []
+
+    return normalized
+
+
 def _validate_analysis_payload(payload: dict[str, Any]) -> ResumeAnalysis:
-    parsed = ResumeAnalysis.model_validate(payload)
-    return parsed
+    try:
+        parsed = ResumeAnalysis.model_validate(payload)
+        return parsed
+    except ValidationError:
+        normalized = _normalize_analysis_payload(payload)
+        return ResumeAnalysis.model_validate(normalized)
 
 
 def analyze_with_gemini(resume_text: str, job_description: str):
@@ -423,12 +588,49 @@ Ask:
 If the answer is NO, remove or correct the claim.
 
 ====================
-OUTPUT
+OUTPUT SCHEMA (JSON)
 ====================
 
-Return the analysis using the provided structured output schema.
+Return a valid JSON object matching this exact structure:
+{{
+  "overall_match": <integer from 0 to 100>,
+  "matching_skills": [
+    {{
+      "skill": "<skill name>",
+      "evidence": "<concise evidence from resume>"
+    }}
+  ],
+  "missing_skills": [
+    {{
+      "skill": "<skill name>",
+      "importance": "high" | "medium" | "low"
+    }}
+  ],
+  "weak_areas": [
+    {{
+      "area": "<area name>",
+      "reason": "<reason why this area is weak>"
+    }}
+  ],
+  "ats_issues": [
+    "<issue description string>"
+  ],
+  "bullet_improvements": [
+    {{
+      "original": "<original bullet point>",
+      "suggested": "<improved bullet point>",
+      "reason": "<reason for improvement>"
+    }}
+  ],
+  "recommendations": [
+    "<recommendation string>"
+  ]
+}}
 
-Do not return Markdown, explanations, reasoning, code fences, or text outside the structured response.
+
+CRITICAL: "recommendations" and "ats_issues" must be arrays of plain strings (NOT arrays of objects or dictionaries).
+Do not return Markdown, explanations, reasoning, code fences, or text outside the JSON object.
+
 
 ====================
 TARGET JOB DESCRIPTION

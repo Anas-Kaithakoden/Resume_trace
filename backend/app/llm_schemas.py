@@ -33,3 +33,4 @@ class ResumeAnalysis(BaseModel):
     ats_issues: list[str]
     bullet_improvements: list[BulletImprovement]
     recommendations: list[str]
+    resume_text: str | None = None

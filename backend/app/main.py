@@ -59,5 +59,6 @@ async def analyze_resume(
         job_description_text,
         model_name=model,
     )
+    result.resume_text = resume_text
 
-    return result
+    return result
